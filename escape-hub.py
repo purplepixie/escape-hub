@@ -18,10 +18,36 @@ Version 0.0.01
 
 from sanic import Sanic, Request, Websocket
 from sanic.response import text
+from sanic.response import json as sjson
 import uuid
+import copy
+import json
 
 # Global Set of Connections (WebSockets)
 connections = {}
+
+# Global Set of Data for Rooms (and Devices)
+rooms = {}
+
+# Main Connection Reference Dictionary - to deepcopy()
+connectiondictionary = {
+            "socket": False,
+            "room": False,
+            "subscribed": False
+        }
+
+# Default Room Dictionary - to deepcopy()
+roomdictionary = {
+    "name": "",
+    "devices": {}
+}
+
+# Default Return Object - to deepcopy()
+returnobject = {
+    "error": False,
+    "message": "",
+    "data": {}
+}
 
 # Connection Handling
 async def AddConnection(cuuid, cdict):
@@ -34,12 +60,19 @@ async def RemoveConnection(cuuid):
 
 async def Receive(cuuid, data):
     print("RX "+cuuid+": "+data)
-    await Broadcast(data)
+    #await Broadcast(data)
+    Process(json.loads(data))
 
 async def Broadcast(data):
     uuids = list(connections.keys())
     for u in uuids:
         await Send(u, data)
+
+async def Publish():
+    uuids = list(connections.keys())
+    for u in uuids:
+        if connections[u]["subscribed"] is True:
+            await Send(u, json.dumps(rooms))
 
 async def Send(cuuid, data):
     try:
@@ -50,6 +83,46 @@ async def Send(cuuid, data):
         print(str(e))
         await RemoveConnection(cuuid)
 
+# Room and Data Management
+def AddRoom(ruuid, name):
+    newroom = copy.deepcopy(roomdictionary)
+    newroom['name']=name
+    rooms.update({ruuid: newroom})
+    return ruuid
+
+def Process(reqjson):
+    ret = copy.deepcopy(returnobject)
+
+    if reqjson['action'] == 'status':
+        ret['status'] = {
+            "connections": str(len(connections.keys())),
+            "rooms": str(len(rooms.keys()))
+        }
+        ret['data'] = rooms
+        ret['message'] = "Status from Escape Hub"
+    elif reqjson['action'] == 'register':
+        if reqjson['room'] in rooms: # does the room exist for registration
+            devid = str(uuid.uuid4())
+            rd = {
+                "name": reqjson['name'],
+                "status": reqjson['status'],
+                "actions": reqjson['actions']
+            }
+            rooms[reqjson['room']]['devices'].update({devid: rd})
+            ret['roomid'] = devid
+        else:
+            ret['error'] = True
+            ret['message'] = "Room Does Not Exist"
+
+    return sjson(ret)
+
+# Load Config
+rf = open('config/rooms.json')
+roomconfig = json.load(rf)
+rf.close()
+for r in roomconfig.keys():
+    AddRoom(r, roomconfig[r])
+
 # Sanic app
 app = Sanic("EscapeHub")
 
@@ -57,14 +130,21 @@ app = Sanic("EscapeHub")
 async def main_page(request):
     return text("Hello from EscapeHub")
 
+@app.get("/status")
+async def status_page(request):
+    t = "EscapeHub Status\n\nConnections: "+str(len(connections.keys()))+"\nRooms: "+str(len(rooms.keys()))
+    return text(t)
+
+@app.route("/api", methods=["POST","GET"])
+async def api_handler(request):
+    return Process(request.json)
+
 @app.websocket("/connect")
 async def connect(request: Request, ws: Websocket):
     myuuid = str(uuid.uuid4())
     try:
-        connectiondict = {
-            "socket": ws,
-            "room": False
-        }
+        connectiondict = copy.deepcopy(connectiondictionary)
+        connectiondict["socket"]=ws
         await AddConnection(myuuid, connectiondict)
         while True:
             data = await ws.recv()
