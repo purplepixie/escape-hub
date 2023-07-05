@@ -17,6 +17,8 @@ class hubclient:
         self.sct = False # Our SystemConnect Thread
         self.quit = False # Indication to quit and close down
 
+        self.actionHandler = False # the function to handle actions for us
+
     def Debug(self,str):
         if self.dev is True:
             print("HubClient: "+str)
@@ -26,6 +28,13 @@ class hubclient:
         self.sct.daemon = True
         self.sct.start()
         time.sleep(0.5)
+    
+    def setDebug(self, d):
+        if d:
+            websocket.enableTrace(True)
+        else:
+            websocket.enableTrace(False)
+        self.dev = d
 
     def SystemConnect(self, uri):
         self.Debug("Connecting to "+uri)
@@ -60,8 +69,38 @@ class hubclient:
     
     def on_message(self, ws, message):
         self.Debug("WS Message RX: "+message)
+        try:
+            m = json.loads(message)
+            if self.registered is False:
+                if "deviceid" in m: # registration message
+                    self.myid = m["deviceid"]
+                    self.registered = True
+                    self.Debug("Device registered with ID "+self.myid)
+            else: # we are registered
+                self.Debug("Received "+message)
+                # Processing options for RX
+                # Action
+                if "action" in m and m['action'] == 'action' and "deviceid" in m and m['deviceid'] == self.myid and "actionid" in m:
+                    self.Debug("Valid action received actionid: "+m['actionid'])
+                    # call action handler
+                    if callable(self.actionHandler):
+                        self.actionHandler(m['actionid'])
+                    else:
+                        self.Debug("Action received but no valid handler registered")
+                elif "error" in m and m['error'] is False and "deviceid" in m and m['deviceid'] == self.myid and "message" in m: # generic message to me (i.e. ACK)
+                    self.Debug("Message: "+m['message'])
+                else: # unknown data
+                    self.Debug("Unknown or invalid data received")
+        except Exception as e:
+            print("** EXCEPTION **")
+            print(e)
 
     def Register(self, data):
         data.update({"action":"register"})
         self.Debug("Registering Device")
+        self.ws.send(json.dumps(data))
+    
+    def Update(self, data):
+        data.update({"action":"update"})
+        data.update({"deviceid": self.myid})
         self.ws.send(json.dumps(data))

@@ -37,16 +37,34 @@ device = { # a dictionary containing our device details
     ]
 }
 
+def ActionHandler(actionid): # handler when we receive an action for us
+    print("Action handler for ID "+actionid)
+    # for the demo we will toggle i.e. ACTONE will disable ONE and enable TWO and vice-versa
+    if actionid == "ACTONE":
+        device['actions'][0]['enabled'] = False
+        device['actions'][1]['enabled'] = True
+    elif actionid == "ACTTWO":
+        device['actions'][1]['enabled'] = False
+        device['actions'][0]['enabled'] = True
+    else:
+        print("Unknown action") # useful for debug
+    # and we update this state i.e. push it back to the hub
+    hub.Update(device)
+
 hub = hubclient() # the instance of the hubclient
+
+hub.setDebug(True) # will output LOTS to the console
+
+hub.actionHandler = ActionHandler # assign the function above to handle (receive) actions for us
 
 print("Startup")
 
 print("Connecting to EscapeHub via "+huburi)
 
-hubclient.Connect(hub,huburi)
+hub.Connect(huburi)
 
 print("Registering Device")
-myid = hubclient.Register(hub,device)
+myid = hub.Register(device)
 
 
 while True: # infinite loop for our device logic

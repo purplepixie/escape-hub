@@ -22,6 +22,7 @@ from sanic.response import json as sjson
 import uuid
 import copy
 import json
+import asyncio
 
 # Global Set of Connections (WebSockets)
 connections = {}
@@ -46,6 +47,7 @@ roomdictionary = {
 returnobject = {
     "error": False,
     "message": "",
+    "type": "",
     "data": {}
 }
 
@@ -61,7 +63,9 @@ async def RemoveConnection(cuuid):
 async def Receive(cuuid, data):
     try:
         print("RX "+cuuid+": "+data)
-        sendbackj = Process(json.loads(data)) # returns a Sanic JSONResponse
+        incoming = json.loads(data) # load into dict from JSON
+        incoming.update({"cuuid": cuuid}) # add in the CUUID
+        sendbackj = await Process(incoming) # returns a Sanic JSONResponse
         sendback = json.dumps(sendbackj.raw_body)
         print("Back from Process")
         print(sendback)
@@ -81,7 +85,17 @@ async def Publish():
     uuids = list(connections.keys())
     for u in uuids:
         if connections[u]["subscribed"] is True:
-            await Send(u, json.dumps(rooms))
+            await SendRooms(u)
+
+async def GetRoomsData():
+    ret = copy.deepcopy(returnobject)
+    ret.update({"data": rooms})
+    ret.update({"type":"rooms"})
+    return ret
+
+async def SendRooms(cuuid):
+    ret = await GetRoomsData()
+    await Send(cuuid, json.dumps(ret))
 
 async def Send(cuuid, data):
     try:
@@ -99,7 +113,7 @@ def AddRoom(ruuid, name):
     rooms.update({ruuid: newroom})
     return ruuid
 
-def Process(reqjson):
+async def Process(reqjson):
     print("Process called for RX data packet")
     ret = copy.deepcopy(returnobject)
 
@@ -118,16 +132,61 @@ def Process(reqjson):
             rd.update({"name": reqjson['name']})
             rd.update({"status": reqjson['status']})
             rd.update({"actions": reqjson['actions']})
+            if "cuuid" in reqjson: # it comes from a websocket so has a cuuid
+                rd.update({"cuuid": reqjson['cuuid']})
               
             print("Updating room device list")
             rooms[reqjson['room']]['devices'].update({devid: rd})
             print(rooms)
             ret['deviceid'] = devid
             print(ret)
+            await Publish()
         else:
             print("Device attempted to register for non-existant room "+reqjson['room'])
             ret['error'] = True
             ret['message'] = "Room Does Not Exist"
+    elif reqjson['action'] == 'update':
+        if reqjson['room'] in rooms: # does the room exist for registration
+            devid = reqjson['deviceid']
+            print("Updating device for room "+reqjson['room']+" ID "+devid)
+            rd = {}
+            rd.update({"name": reqjson['name']})
+            rd.update({"status": reqjson['status']})
+            rd.update({"actions": reqjson['actions']})
+            if "cuuid" in reqjson: # it comes from a websocket so has a cuuid
+                rd.update({"cuuid": reqjson['cuuid']})
+              
+            print("Updating room device list")
+            rooms[reqjson['room']]['devices'].update({devid: rd})
+            print(rooms)
+            ret['deviceid'] = devid
+            ret['message'] = "Update received"
+            print(ret)
+            await Publish()
+        else:
+            print("Device attempted to register for non-existant room "+reqjson['room'])
+            ret['error'] = True
+            ret['message'] = "Room Does Not Exist"
+    elif reqjson['action'] == 'subscribe': # subscribe WS to update feed
+        print("Action to subscribe for "+reqjson['cuuid'])
+        connections[reqjson['cuuid']]['subscribed'] = True
+        ret['message'] = "Subscribed"
+    elif reqjson['action'] == 'getrooms': # getrooms - get current state
+        print("Action to get rooms for")
+        ret = await GetRoomsData()
+    elif reqjson['action'] == 'action': # action - perform a device action
+        print("Device action "+reqjson['actionid']+" for "+reqjson['deviceid']+" in room "+reqjson['roomid'])
+        if reqjson['roomid'] in rooms and reqjson['deviceid'] in rooms[reqjson['roomid']]['devices'] and "cuuid" in rooms[reqjson['roomid']]["devices"][reqjson['deviceid']]:
+            print("Valid device action, for CUUID: "+rooms[reqjson['roomid']]['devices'][reqjson['deviceid']]['cuuid'])
+            await Send(rooms[reqjson['roomid']]['devices'][reqjson['deviceid']]['cuuid'], json.dumps(reqjson));
+            ret['message'] = "Sent action"
+        else:
+            ret['error'] = True
+            ret['message'] = "Device or room or CUUID not found"
+    else:
+        ret['error'] = True
+        ret['message'] = "Unknown or illegal action requested"
+
 
     print("Process routine complete")
     return sjson(ret)
@@ -142,9 +201,11 @@ for r in roomconfig.keys():
 # Sanic app
 app = Sanic("EscapeHub")
 
-@app.get("/")
-async def main_page(request):
-    return text("Hello from EscapeHub")
+#@app.get("/")
+#async def main_page(request):
+#    return text("Hello from EscapeHub")
+
+app.static('/', './www/index.html')
 
 @app.get("/status")
 async def status_page(request):
@@ -153,7 +214,7 @@ async def status_page(request):
 
 @app.route("/api", methods=["POST","GET"])
 async def api_handler(request):
-    return Process(request.json)
+    return await Process(request.json)
 
 @app.websocket("/connect")
 async def connect(request: Request, ws: Websocket):
