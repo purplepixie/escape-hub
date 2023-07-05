@@ -1,6 +1,6 @@
 FROM python
 
-WORKDIR /escpehub
+WORKDIR /escapehub
 COPY . .
 RUN pip3 install -r requirements.txt
 

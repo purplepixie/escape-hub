@@ -2,11 +2,13 @@
 
 ## Installation and Execution
 
-Install the requirements: ```pip install -r requirements.txt```
+Install the python requirements: ```pip install -r requirements.txt```
 
 Start the hub: ```sanic escape-hub```
 
 Note you may need to use ```pip3``` and ```python3``` commands dependent on your setup (python 3 is required).
+
+By default sanic will serve on ```127.0.0.1``` so only respond to requests from the local machine, you can add the switch ```--host=0.0.0.0``` to the sanic command to listen and serve all interfaces. Also ```--debug``` is useful to see a lot of debug output.
 
 # Interfacing with Escape Hub Directly (API or WebSocket)
 
@@ -51,3 +53,5 @@ Example response:
     "roomid": "e9c1842f-786c-43d7-afa1-8e0a4286e0eb"
 }
 ```
+
+# Using the hubclient Package
