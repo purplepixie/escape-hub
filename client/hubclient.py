@@ -10,7 +10,7 @@ class hubclient:
 
     def __init__(self):
         self.ws = False # websocket object
-        self.dev = True # development mode (debug output)
+        self.dev = False # development mode (debug output)
         self.registered = False # once registered we pass everything to the callback
         self.myid = False # for remote ID of device
         self.wst = False # WS Thread 
@@ -38,7 +38,7 @@ class hubclient:
 
     def SystemConnect(self, uri):
         self.Debug("Connecting to "+uri)
-        websocket.enableTrace(True)
+        #websocket.enableTrace(True)
         self.ws = websocket.WebSocketApp(
             uri,
             on_open=self.on_open,
