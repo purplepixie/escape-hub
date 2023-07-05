@@ -59,9 +59,18 @@ async def RemoveConnection(cuuid):
     print("Removing "+cuuid+" making total of "+str(len(connections.keys())))
 
 async def Receive(cuuid, data):
-    print("RX "+cuuid+": "+data)
-    #await Broadcast(data)
-    Process(json.loads(data))
+    try:
+        print("RX "+cuuid+": "+data)
+        sendbackj = Process(json.loads(data)) # returns a Sanic JSONResponse
+        sendback = json.dumps(sendbackj.raw_body)
+        print("Back from Process")
+        print(sendback)
+        await Send(cuuid, sendback)
+    except Exception as ex:
+        print("Exception in receive")
+        template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+        message = template.format(type(ex).__name__, ex.args)
+        print(message)
 
 async def Broadcast(data):
     uuids = list(connections.keys())
@@ -91,6 +100,7 @@ def AddRoom(ruuid, name):
     return ruuid
 
 def Process(reqjson):
+    print("Process called for RX data packet")
     ret = copy.deepcopy(returnobject)
 
     if reqjson['action'] == 'status':
@@ -103,17 +113,23 @@ def Process(reqjson):
     elif reqjson['action'] == 'register':
         if reqjson['room'] in rooms: # does the room exist for registration
             devid = str(uuid.uuid4())
-            rd = {
-                "name": reqjson['name'],
-                "status": reqjson['status'],
-                "actions": reqjson['actions']
-            }
+            print("Registering new device for room "+reqjson['room']+" ID "+devid)
+            rd = {}
+            rd.update({"name": reqjson['name']})
+            rd.update({"status": reqjson['status']})
+            rd.update({"actions": reqjson['actions']})
+              
+            print("Updating room device list")
             rooms[reqjson['room']]['devices'].update({devid: rd})
-            ret['roomid'] = devid
+            print(rooms)
+            ret['deviceid'] = devid
+            print(ret)
         else:
+            print("Device attempted to register for non-existant room "+reqjson['room'])
             ret['error'] = True
             ret['message'] = "Room Does Not Exist"
 
+    print("Process routine complete")
     return sjson(ret)
 
 # Load Config
@@ -151,5 +167,5 @@ async def connect(request: Request, ws: Websocket):
             await Receive(myuuid, data)
     except Exception as e:
         print("WS "+myuuid+" exception, removing")
-        print(str(e))
+        print(e)
         await RemoveConnection(myuuid)
