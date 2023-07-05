@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>EscapeHub Web</title>
+    </head>
+    
+    <style type="text/css">
+        body {
+            font-family: Aerial, Helvettica, sans-serif;
+            font-size: 120%
+        }
+
+        #hub {
+            margin: 0.5em;
+            padding: 0.5em;
+        }
+
+        .room {
+            margin-bottom: 1em;
+            border-top: solid 1px black;
+        }
+
+        .roomtitle {
+            margin-bottom: 0.5em;
+            font-size: 200%;
+            font-weight: bold;
+        }
+
+        .device {
+            margin-top: 1em;
+        }
+
+        .deviceid {
+            font-size: 50%;
+            color: #a0a0a0;
+        }
+    </style>
+
+    <script type="text/javascript">
+        var ws; // global websocket
+        function WebSocketConnect()
+        {
+            if ("WebSocket" in window)
+            {
+                var loc = window.location, new_uri;
+                if (loc.protocol === "https:") {
+                    new_uri = "wss:";
+                } else {
+                    new_uri = "ws:";
+                }
+                new_uri += "//" + loc.host;
+                new_uri += loc.pathname + "connect";
+                ws = new WebSocket(new_uri);
+
+                ws.onopen = function() {
+                    console.log("WebSocket Connected");
+                    var subscribe = { "action": "subscribe" }
+                    ws.send(JSON.stringify(subscribe));
+                    var getrooms = { "action": "getrooms" }
+                    ws.send(JSON.stringify(getrooms));
+                }
+
+                ws.onmessage = function(evt) {
+                    var data = evt.data;
+                    console.log("RX: "+data);
+                    var j = JSON.parse(data);
+                    if (j.type == "rooms") // room update
+                    {
+                        var rdiv = document.getElementById('hub');
+
+                        // clear it
+                        while (rdiv.firstChild) {
+                            rdiv.removeChild(rdiv.lastChild);
+                        }
+
+                        const rids = Object.entries(j.data); // get room IDs
+                        for(var i=0; i<rids.length; ++i)
+                        {
+                            console.log("Updating for room ID "+rids[i][0]);
+                            var roomdiv = document.createElement("div");
+                            roomdiv.className = "room";
+
+                            var rtdiv = document.createTextNode("Room ID "+rids[i][0]+": "+rids[i][1].name);
+                            rtdiv.className = "roomtitle";
+                            roomdiv.appendChild(rtdiv);
+
+                            const devs = Object.entries(rids[i][1].devices);
+                            for(var d=0; d<devs.length; ++d)
+                            {
+                                var devdiv = document.createElement("div");
+                                devdiv.className = "device";
+
+                                var devid = document.createElement("div");
+                                devid.innerHTML = "Device ID: "+devs[d][0];
+                                devid.className = "deviceid";
+                                devdiv.appendChild(devid);
+
+                                var devname = document.createElement("div");
+                                devname.innerHTML = "Name: "+devs[d][1].name;
+                                devname.className = "devicename";
+                                devdiv.appendChild(devname);
+
+                                var devstatus = document.createElement("div");
+                                devstatus.innerHTML="Status: "+devs[d][1].status;
+                                devstatus.className = "devicestatus";
+                                devdiv.appendChild(devstatus);
+
+                                const actions = Object.entries(devs[d][1].actions);
+                                for(var a=0; a<actions.length; ++a)
+                                {
+                                    var bdiv = document.createElement("div");
+                                    bdiv.className="actioncontainer";
+                                    /*
+                                    var btn = document.createElement('button');
+                                    btn.innerText = actions[a][1].name;
+                                    btn.className = "deviceaction";
+                                    if (!actions[a][1].enabled)
+                                    {
+                                        btn.disabled = true;
+                                        btn.className = "deviceaction actiondisabled";
+                                    }
+
+                                    bdiv.appendChild(btn);
+                                    */
+
+                                    var bhtml = "<button class=\"deviceaction";
+                                    if (!actions[a][1].enabled) bhtml += " actiondisabled";
+                                    bhtml+="\" onclick=\"actionClick('"+rids[i][0]+"','"+devs[d][0]+"','"+actions[a][1].actionid+"');\"";
+                                    if (!actions[a][1].enabled) bhtml += " disabled";
+                                    bhtml+=">"+actions[a][1].name+"</button>";
+                                    console.log(bhtml);
+
+                                    bdiv.innerHTML = bhtml;
+
+                                    devdiv.appendChild(bdiv);
+                                }
+
+                                roomdiv.appendChild(devdiv);
+                            }
+
+                            rdiv.appendChild(roomdiv);
+                        }
+                    }
+                }
+
+                ws.onclose = function() {
+                    console.log("WebSocket Connection Closed");
+                    alert("WebSocket Connection has Closed");
+                }
+
+            }
+            else
+            {
+                alert("Sorry your browser does not support websockets");
+            }
+        }
+
+
+        function actionClick(roomid, deviceid, actionid)
+        {
+            console.log("Action for room "+roomid+", device "+deviceid+", action "+actionid);
+            
+            var action = { "action": "action", "roomid": roomid, "deviceid": deviceid, "actionid": actionid }
+            ws.send(JSON.stringify(action));
+        }
+    </script>
+    </head>
+
+    <body>
+        <h1>EscapeHub Web</h1>
+
+        <div id="hub"></div>
+
+    </body>
+    <script type="text/javascript">
+        WebSocketConnect();
+    </script>
+</html>
