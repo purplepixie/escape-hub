@@ -279,3 +279,13 @@ myid = hub.Register(device)
 while True: # infinite loop for our device logic
     time.sleep(0.05)
 ```
+
+# C++ Client: A very rudimentary C++ example client
+
+In the folder ```client-cpp``` can be found a very simple example starter client in C++ using easywsclient (https://github.com/dhbaird/easywsclient).
+
+There is an included Makefile so ```make``` will generate the binary which _should_ be cross-platform (even including Windows).
+
+Alternatively just build the ```democlient-cpp.cpp```, all the needed libraries are contained in the directory.
+
+Currently it will setup, open a websocket and register as a device. The implementer can handle any other events. This is not thread safe but the client element could be spun into a single thread as needed.
