@@ -84,6 +84,24 @@
                             rtdiv.className = "roomtitle";
                             roomdiv.appendChild(rtdiv);
 
+                            var radiv = document.createElement("div");
+                            /*
+                            var ratext = document.createElement("input");
+                            ratext.setAttribute("type","text");
+                            ratext.setAttribute("id","room-text-"+rids[i][0]);
+                            var rabutton = document.createElement("button");
+                            rabutton.innerHTML = "Room Action";
+                            rabutton.onclick = roomAction(rids[i][0]);
+                            radiv.appendChild(ratext);
+                            radiv.appendChild(rabutton);
+                            */
+
+                            rahtml="<input type='text' id='room-text-"+rids[i][0]+"' /> ";
+                            rahtml += "<button type='button' onclick='roomAction("+rids[i][0]+");'>Room Action</button>";
+                            radiv.innerHTML = rahtml;
+
+                            roomdiv.appendChild(radiv);
+
                             const devs = Object.entries(rids[i][1].devices);
                             for(var d=0; d<devs.length; ++d)
                             {
@@ -161,6 +179,15 @@
             console.log("Action for room "+roomid+", device "+deviceid+", action "+actionid);
             
             var action = { "action": "action", "roomid": roomid, "deviceid": deviceid, "actionid": actionid }
+            ws.send(JSON.stringify(action));
+        }
+
+        function roomAction(roomid)
+        {
+            console.log("Room action for room "+roomid);
+            actionid = document.getElementById('room-text-'+roomid).value;
+            console.log("Room action of '"+actionid+'" for room '+roomid);
+            var action = { "action": "roomaction", "roomid": roomid, "actionid": actionid }
             ws.send(JSON.stringify(action));
         }
     </script>

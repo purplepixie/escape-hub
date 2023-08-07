@@ -100,9 +100,24 @@ Response will be an error-free response with a message showing that update was s
 
 A response will be sent with a message confirming the action. If any of the IDs are not found an error response is generated with the ```error``` flag set.
 
-# Using the hubclient Package
+### Room Action
 
-A ```hubclient``` package is provided along with an example device client implementation (```demo-client.py```) in the ```client/``` directory. This provides a guide and package for the abstracted use of Escape Hub in any python code.
+```roomaction``` triggers a device action for every device in the room. The payload should contain IDs for the action and the room. For example:
+```json
+{
+    "action": "roomaction",
+    "actionid": "ACTIONONE",
+    "roomid": "1"
+}
+```
+
+Note the client will receive an ```action``` message (not ```roomaction```) but the request to it will have an additional field ```"roomaction": true``` if needed.
+
+A response will be sent with a message confirming the action. If any of the IDs are not found an error response is generated with the ```error``` flag set.
+
+# Python client: Using the hubclient Package
+
+A ```hubclient``` package is for python provided along with an example device client implementation (```demo-client.py```) in the ```client/``` directory. This provides a guide and package for the abstracted use of Escape Hub in any python code.
 
 ## Writing a Device Using hubclient
 

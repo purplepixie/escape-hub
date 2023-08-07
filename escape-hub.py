@@ -183,6 +183,23 @@ async def Process(reqjson):
         else:
             ret['error'] = True
             ret['message'] = "Device or room or CUUID not found"
+    elif reqjson['action'] == 'roomaction': # roomaction - perform an action on all devices in the room
+        print("Room action")
+        reqjson['roomid']=str(reqjson['roomid'])
+        print("Room action "+reqjson['actionid']+" in room "+reqjson['roomid'])
+        if reqjson['roomid'] in rooms:
+            print("Valid room")
+            roomaction = copy.deepcopy(reqjson)
+            roomaction['action']='action'
+            roomaction['roomaction'] = True
+            # 'deviceid'
+            for key in rooms[reqjson['roomid']]["devices"]:
+                roomaction['deviceid'] = key
+                await Send(rooms[reqjson['roomid']]['devices'][key]['cuuid'], json.dumps(roomaction));
+            ret['message'] = "Sent room action"
+        else:
+            ret['error'] = True
+            ret['message'] = "Device or room or CUUID not found"
     else:
         ret['error'] = True
         ret['message'] = "Unknown or illegal action requested"
