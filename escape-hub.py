@@ -58,7 +58,23 @@ async def AddConnection(cuuid, cdict):
 
 async def RemoveConnection(cuuid):
     connections.pop(cuuid)
-    print("Removing "+cuuid+" making total of "+str(len(connections.keys())))
+    print("Removing "+cuuid+" making total of "+str(len(connections.keys()))+" connections")
+    # and remove from room data
+    didRemove = False
+    roomcopy = copy.deepcopy(rooms) # copy for alteration purposes
+    for room in roomcopy.keys():
+        print("Checking room "+room)
+        for dev in roomcopy[room]["devices"]:
+            print("Checking device "+dev)
+            if "cuuid" in roomcopy[room]["devices"][dev] and roomcopy[room]["devices"][dev]["cuuid"] == cuuid:
+                print("Found device in room "+room+" device "+dev+" removing")
+                rooms[room]["devices"].pop(dev)
+                didRemove = True
+    if didRemove: # we removed a device so let's send an update
+        await Publish()
+
+
+
 
 async def Receive(cuuid, data):
     try:
