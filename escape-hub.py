@@ -209,9 +209,10 @@ async def Process(reqjson):
             roomaction['action']='action'
             roomaction['roomaction'] = True
             # 'deviceid'
-            for key in rooms[reqjson['roomid']]["devices"]:
+            roomcopy = copy.deepcopy(rooms)
+            for key in roomcopy[reqjson['roomid']]["devices"]:
                 roomaction['deviceid'] = key
-                await Send(rooms[reqjson['roomid']]['devices'][key]['cuuid'], json.dumps(roomaction));
+                await Send(roomcopy[reqjson['roomid']]['devices'][key]['cuuid'], json.dumps(roomaction));
             ret['message'] = "Sent room action"
         else:
             ret['error'] = True

@@ -95,12 +95,17 @@
                             radiv.appendChild(ratext);
                             radiv.appendChild(rabutton);
                             */
-
+                            var radiv = document.createElement("div");
                             rahtml="<input type='text' id='room-text-"+rids[i][0]+"' /> ";
                             rahtml += "<button type='button' onclick='roomAction("+rids[i][0]+");'>Room Action</button>";
                             radiv.innerHTML = rahtml;
-
                             roomdiv.appendChild(radiv);
+
+                            var rcdiv = document.createElement("div");
+                            rchtml = "";
+                            rchtml += "<button type='button' onclick='roomCommand("+rids[i][0]+",\"_PING\");'>Ping All Devices</button> ";
+                            rcdiv.innerHTML = rchtml;
+                            roomdiv.appendChild(rcdiv);
 
                             const devs = Object.entries(rids[i][1].devices);
                             for(var d=0; d<devs.length; ++d)
@@ -188,6 +193,14 @@
             actionid = document.getElementById('room-text-'+roomid).value;
             console.log("Room action of '"+actionid+'" for room '+roomid);
             var action = { "action": "roomaction", "roomid": roomid, "actionid": actionid }
+            ws.send(JSON.stringify(action));
+        }
+
+        function roomCommand(roomid, command)
+        {
+            console.log("Room command for room "+roomid);
+            console.log("Room command of '"+command+'" for room '+roomid);
+            var action = { "action": "roomaction", "roomid": roomid, "actionid": command }
             ws.send(JSON.stringify(action));
         }
     </script>
